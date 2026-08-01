@@ -52,19 +52,61 @@ let rec evaluate (ctx:VariableContext) e =
       | _ -> failwith ("unbound variable: " + v)
 
   // NOTE: You have the following from before
-  | Unary(op, e) -> failwith "implemented in step 2"
-  | If(econd, etrue, efalse) -> failwith "implemented in step 2"
-  | Lambda(v, e) -> failwith "implemented in step 3"
-  | Application(e1, e2) -> failwith "implemented in step 3"
-  | Let(v, e1, e2) -> failwith "implemented in step 4"
+  | Unary(op, e) ->
+      let v = evaluate ctx e
+      match v with 
+      | ValNum n ->
+          match op with
+          | "-" -> ValNum(-n)
+          | _ -> failwith "unsupported unary operator"
+
+  | If(e1, e2, e3) ->
+      let v1 = evaluate ctx e1
+      match v1 with 
+      | ValNum n1 ->
+          match n1 with
+              | 1 -> 
+                let v2 = evaluate ctx e2
+                v2
+              | _ -> 
+                let v3 = evaluate ctx e3
+                v3
+
+  | Lambda(v, e) ->
+      ValClosure(v, e, Map.empty)
+
+  | Application(e1, e2) ->
+      let v1 = evaluate ctx e1
+      let v2 = evaluate ctx e2
+      match v1, v2 with
+      | ValNum num, ValClosure (var, exp, context) ->
+        failwith "Wrong function call"
+      | ValClosure (var, exp, context), ValNum num ->
+          let context = context.Add(var, v2)
+          let final = evaluate context exp
+          final
+
+  | Let(v, e1, e2) ->
+    let v1 = evaluate ctx e1
+    let ctx = ctx.Add(v, v1)
+    evaluate ctx e2
 
   | Tuple(e1, e2) ->
       // TODO: Construct a tuple value here!
-      failwith "not implemented"
+      let v1 = evaluate ctx e1
+      let v2 = evaluate ctx e2
+      ValTuple(v1, v2)
+
   | TupleGet(b, e) ->
       // TODO: Access #1 or #2 element of a tuple value.
       // (If the argument is not a tuple, this fails.)
-      failwith "not implemented"
+      let tuple = evaluate ctx e
+      match b, tuple with
+        | true, ValTuple(e1, e2) -> 
+            e1
+        | false, ValTuple(e1, e2) ->
+            e2
+        | _ -> failwith "Incorrectly defined tuple"
 
 // ----------------------------------------------------------------------------
 // Test cases

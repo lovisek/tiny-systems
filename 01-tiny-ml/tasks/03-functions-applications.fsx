@@ -12,7 +12,7 @@ type Value =
   | ValClosure of string * Expression * VariableContext
 
 // NOTE: 'ValClosure' above needs to refer to 'Expression' and also
-// 'VariableContext'. To make such recursive references, we define 
+// 'VariableContext'. To make such recursive references, we define
 // the types using 'type .. and .. and' from now on!
 and Expression = 
   | Constant of int
@@ -31,7 +31,7 @@ and VariableContext =
 // Evaluator
 // ----------------------------------------------------------------------------
 
-let rec evaluate (ctx:VariableContext) e =
+let rec evaluate (ctx:VariableContext) (e) =
   match e with 
   | Constant n -> ValNum n
   | Binary(op, e1, e2) ->
@@ -53,18 +53,43 @@ let rec evaluate (ctx:VariableContext) e =
       | _ -> failwith ("unbound variable: " + v)
 
   // NOTE: You have the following two from before
-  | Unary(op, e) -> failwith "implemented in step 2"
-  | If(econd, etrue, efalse) -> failwith "implemented in step 2"
-  
+  | Unary(op, e) ->
+      let v = evaluate ctx e
+      match v with 
+      | ValNum n ->
+          match op with
+          | "-" -> ValNum(-n)
+          | _ -> failwith "unsupported unary operator"
+
+  | If(e1, e2, e3) ->
+      let v1 = evaluate ctx e1
+      match v1 with 
+      | ValNum n1 ->
+          match n1 with
+              | 1 -> 
+                let v2 = evaluate ctx e2
+                v2
+              | _ -> 
+                let v3 = evaluate ctx e3
+                v3
+
   | Lambda(v, e) ->
       // TODO: Evaluate a lambda - create a closure value
-      failwith "not implemented"
+      ValClosure(v, e, Map.empty)
 
   | Application(e1, e2) ->
       // TODO: Evaluate a function application. Recursively
       // evaluate 'e1' and 'e2'; 'e1' must evaluate to a closure.
       // You can then evaluate the closure body.
-      failwith "not implemented"
+      let v1 = evaluate ctx e1
+      let v2 = evaluate ctx e2
+      match v1, v2 with
+      | ValNum num, ValClosure (var, exp, context) ->
+        failwith "Wrong function call"
+      | ValClosure (var, exp, context), ValNum num ->
+          let context = context.Add(var, v2)
+          let final = evaluate context exp
+          final
 
 // ----------------------------------------------------------------------------
 // Test cases
