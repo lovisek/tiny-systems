@@ -32,41 +32,53 @@ type State =
 // ----------------------------------------------------------------------------
 
 let printValue value = 
-  // TODO: Take 'value' of type 'Value', pattern match on it and print it nicely.
-  failwith "not implemented"
+  // DONE: Take 'value' of type 'Value', pattern match on it and print it nicely.
+  match value with
+      | StringValue str -> printfn "%s" str
 
 let getLine state line =
-  // TODO: Get a line with a given number from 'state.Program' (this can fail 
+  // DONE: Get a line with a given number from 'state.Program' (this can fail 
   // if the line is not there.) You need this in the 'Goto' command case below.
-  failwith "not implemented"
+  let lineCommand = List.filter (fun (num, cmd) -> num = line) state.Program
+  
+  match lineCommand with
+      | [(line, cmd)] -> (line, cmd)
+      | [] -> failwith "Line not found"
+      | _ -> failwith "Multiple lines with the same number"
 
 // ----------------------------------------------------------------------------
 // Evaluator
 // ----------------------------------------------------------------------------
 
 let rec evalExpression expr = 
-  // TODO: Implement evaluation of expressions. The function should take 
+  // DONE: Implement evaluation of expressions. The function should take 
   // 'Expression' and return 'Value'. In this step, it is trivial :-)
-  failwith "not implemented"
+  match expr with 
+      | Const c -> c
 
 let rec runCommand state (line, cmd) =
   match cmd with 
   | Print(expr) ->
-      // TODO: Evaluate the expression and print the resulting value here!
-      failwith "not implemented"
+      // DONE: Evaluate the expression and print the resulting value here!
+      printValue (evalExpression expr)
+      
       runNextLine state line
   | Run ->
       let first = List.head state.Program    
       runCommand state first
   | Goto(line) ->
-      // TODO: Find the right line of the program using 'getLine' and call 
+      // DONE: Find the right line of the program using 'getLine' and call 
       // 'runCommand' recursively on the found line to evaluate it.
-      failwith "not implemented"
+      runCommand state (getLine state line)
 
 and runNextLine state line = 
-  // TODO: Find a program line with the number greater than 'line' and evalaute
+  // DONE: Find a program line with the number greater than 'line' and evalaute
   // it using 'runCommand' (if found) or just return 'state' (if not found).
-  failwith "not implemented"
+  let nextLine = List.filter (fun (num, _) -> num > line) state.Program |> List.tryHead
+  
+  match nextLine with // if Option.isNone nextLine then state else runCommand state nextLine.Value
+      | Some next -> runCommand state next
+      | None -> state
 
 // ----------------------------------------------------------------------------
 // Test cases
@@ -86,4 +98,3 @@ runCommand helloOnce (-1, Run) |> ignore
 
 // NOTE: Then add 'Goto' and get the following to work!
 runCommand helloInf (-1, Run) |> ignore
-
