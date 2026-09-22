@@ -21,15 +21,51 @@ type Type =
 // Constraint solving
 // ----------------------------------------------------------------------------
 
-let rec occursCheck vcheck ty = 
-  failwith "implemented in step 2"
-let rec substType (subst:Map<_, _>) t1 = 
-  failwith "implemented in step 2"
-let substConstrs subst cs = 
-  failwith "implemented in step 2"
+let rec occursCheck vcheck ty =
+  // DONE: Return true if type 'ty' contains variable 'vcheck'
+  match ty with
+  | TyBool -> false
+  | TyNumber -> false
+  | TyList(ty) -> occursCheck vcheck ty
+  | TyVariable(vName) -> if vcheck = vName then true else false
+
+let rec substType (subst:Map<string, Type>) ty = 
+  // DONE: Apply all the specified substitutions to the type 'ty'
+  // (that is, replace all occurrences of 'v' in 'ty' with 'subst.[v]')
+  match ty with
+  | TyBool -> TyBool
+  | TyNumber -> TyNumber
+  | TyList(t) -> TyList(substType subst t)
+  | TyVariable(vName) -> if subst.ContainsKey vName then subst.[vName] else TyVariable(vName)
+
+let substConstrs (subst:Map<string, Type>) (cs:list<Type * Type>) = 
+  // DONE: Apply substitution 'subst' to all types in constraints 'cs'
+  List.map (fun (ty1, ty2) -> ((substType subst ty1), (substType subst ty2))) cs
  
-let rec solve constraints =
-  failwith "implemente in step 2"
+ 
+let rec solve cs =
+  match cs with 
+  | [] -> []
+  | (TyNumber, TyNumber)::cs -> solve cs
+  // DONE: Fill in the remaining cases! You can closely follow the
+  // example from task 1 - the logic here is exactly the same.
+  | (TyList t1, TyList t2)::cs -> 
+      solve ((t1, t2)::cs)
+  | (TyBool, TyBool)::cs -> solve cs
+  | (TyNumber, TyBool)::_
+  | (TyBool, TyNumber)::_
+  | (TyList _, TyNumber)::_
+  | (TyNumber, TyList _)::_
+  | (TyList _, TyBool)::_
+  | (TyBool, TyList _)::_ ->
+      failwith "Cannot be solved"
+  | (t, TyVariable v)::cs
+  | (TyVariable v, t)::cs ->
+      if occursCheck v t then failwith "Cannot be solved (occurs check)"
+      let constrs = substConstrs (Map.ofList [(v, t)]) cs
+      let subst = solve constrs
+      let t = substType (Map.ofList subst) t
+      (v, t)::subst
 
 // ----------------------------------------------------------------------------
 // Constraint generation & inference
@@ -54,21 +90,27 @@ let rec generate (ctx:TypingContext) e =
       TyNumber, s1 @ s2 @ [ t1, TyNumber; t2, TyNumber ]
 
   | Binary("=", e1, e2) ->
-      // TODO: Similar to the case for '+' but returns 'TyBool'
-      failwith "not implemented"
+      // DONE: Similar to the case for '+' but returns 'TyBool'
+      let t1, s1 = generate ctx e1
+      let t2, s2 = generate ctx e2
+      TyBool, s1 @ s2 @ [ t1, TyNumber; t2, TyNumber ]
 
   | Binary(op, _, _) ->
       failwithf "Binary operator '%s' not supported." op
 
   | Variable v -> 
-      // TODO: Just get the type of the variable from 'ctx' here.
-      failwith "not implemented"
+      // DONE: Just get the type of the variable from 'ctx' here.
+      ctx.[v], []
 
   | If(econd, etrue, efalse) ->
-      // TODO: Call generate recursively on all three sub-expressions,
+      // DONE: Call generate recursively on all three sub-expressions,
       // collect all constraints and add a constraint that (i) the type
       // of 'econd' is 'TyBool' and (ii) types of 'etrue' and 'efalse' match.
-      failwith "not implemented"
+      let tcond, scond = generate ctx econd
+      let ttrue, strue = generate ctx etrue
+      let tfalse, sfalse = generate ctx efalse
+
+      ttrue, scond @ strue @ sfalse @ [ tcond, TyBool; ttrue, tfalse ]
 
 
 // ----------------------------------------------------------------------------
