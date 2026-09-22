@@ -11,26 +11,53 @@ type Type =
   | TyNumber 
   | TyList of Type
 
-let occursCheck vcheck ty =
-  // TODO: Return true of type 'ty' contains variable 'vcheck'
-  failwith "not implemented"
+let rec occursCheck vcheck ty =
+  // DONE: Return true if type 'ty' contains variable 'vcheck'
+  match ty with
+  | TyBool -> false
+  | TyNumber -> false
+  | TyList(ty) -> occursCheck vcheck ty
+  | TyVariable(vName) -> if vcheck = vName then true else false
+
  
 let rec substType (subst:Map<string, Type>) ty = 
-  // TODO: Apply all the specified substitutions to the type 'ty'
+  // DONE: Apply all the specified substitutions to the type 'ty'
   // (that is, replace all occurrences of 'v' in 'ty' with 'subst.[v]')
-  failwith "not implemented"
+  match ty with
+  | TyBool -> TyBool
+  | TyNumber -> TyNumber
+  | TyList(t) -> TyList(substType subst t)
+  | TyVariable(vName) -> if subst.ContainsKey vName then subst.[vName] else TyVariable(vName)
 
 let substConstrs (subst:Map<string, Type>) (cs:list<Type * Type>) = 
-  // TODO: Apply substitution 'subst' to all types in constraints 'cs'
-  failwith "not implemented"
+  // DONE: Apply substitution 'subst' to all types in constraints 'cs'
+  List.map (fun (ty1, ty2) -> ((substType subst ty1), (substType subst ty2))) cs
  
 
 let rec solve cs =
   match cs with 
   | [] -> []
   | (TyNumber, TyNumber)::cs -> solve cs
-  // TODO: Fill in the remaining cases! You can closely follow the
+  // DONE: Fill in the remaining cases! You can closely follow the
   // example from task 1 - the logic here is exactly the same.
+  | (TyList t1, TyList t2)::cs -> 
+      solve ((t1, t2)::cs)
+  | (TyBool, TyBool)::cs -> solve cs
+  | (TyNumber, TyBool)::_
+  | (TyBool, TyNumber)::_
+  | (TyList _, TyNumber)::_
+  | (TyNumber, TyList _)::_
+  | (TyList _, TyBool)::_
+  | (TyBool, TyList _)::_ ->
+      failwith "Cannot be solved"
+  | (t, TyVariable v)::cs
+  | (TyVariable v, t)::cs ->
+      if occursCheck v t then failwith "Cannot be solved (occurs check)"
+      let constrs = substConstrs (Map.ofList [(v, t)]) cs
+      let subst = solve constrs
+      let t = substType (Map.ofList subst) t
+      (v, t)::subst
+
 
 
 // ----------------------------------------------------------------------------
