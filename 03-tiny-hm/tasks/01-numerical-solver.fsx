@@ -14,27 +14,41 @@ type Number =
 
 
 let rec occursCheck (v:string) (n:Number) = 
-  // TODO: Check if variable 'v' appears anywhere inside 'n'
-  false
+  // DONE: Check if variable 'v' appears anywhere inside 'n'
+  match n with
+  | Zero -> false
+  | Succ(num) -> occursCheck v num
+  | Variable(vName) -> if v = vName then true else false
 
-let rec substite (v:string) (subst:Number) (n:Number) =
-  // TODO: Replace all occurrences of variable 'v' in the
+let rec substitute (v:string) (subst:Number) (n:Number) =
+  // DONE: Replace all occurrences of variable 'v' in the
   // number 'n' with the replacement number 'subst'
-  n
+  match n with
+  | Zero -> Zero
+  | Succ(num) -> Succ(substitute v subst num)
+  | Variable(vName) -> if v = vName then subst else Variable(vName)
 
 let substituteConstraints (v:string) (subst:Number) (constraints:list<Number * Number>) = 
-  // TODO: Substitute 'v' for 'subst' (use 'substitute') in 
+  // DONE: Substitute 'v' for 'subst' (use 'substitute') in 
   // all numbers in all the constraints in 'constraints'
   // HINT: You can use 'List.map' to implement this.
-  constraints
+  List.map (fun (num1, num2) -> ((substitute v subst num1), (substitute v subst num2))) constraints
 
-let substituteAll (subst:list<string * Number>) (n:Number) =
+let rec substituteAll (subst:list<string * Number>) (n:Number) =
   // TODO: Perform all substitutions specified  in 'subst' on the number 'n'
   // HINT: You can use 'List.fold' to implement this. Fold has a type:
   //   ('State -> 'T -> 'State) -> 'State -> List<'T> -> 'State
   // In this case, 'State will be the Number on which we want to apply 
   // the substitutions and List<'T> will be a list of substitutions.
-  n
+  match n with
+  | Zero -> Zero
+  | Succ(num) -> Succ(substituteAll subst num)
+  | Variable(vName) -> 
+    List.fold 
+      (fun currentResult (currentVName, currentNumber) -> 
+        if currentVName = vName then currentNumber else currentResult) 
+      Zero 
+      subst
 
 let rec solve constraints = 
   match constraints with 
