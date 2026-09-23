@@ -24,21 +24,60 @@ type Type =
 // Constraint solving
 // ----------------------------------------------------------------------------
 
-let rec occursCheck vcheck ty = 
-  // TODO: Add case for 'TyFunction' (need to check both nested types)
-  failwith "not implemented"
+let rec occursCheck vcheck ty =
+  // DONE: Return true if type 'ty' contains variable 'vcheck'
+  match ty with
+  | TyBool -> false
+  | TyNumber -> false
+  | TyList(ty) -> occursCheck vcheck ty
+  | TyVariable(vName) -> if vcheck = vName then true else false
+  // DONE: Add case for 'TyFunction' (need to check both nested types)
+  | TyFunction(ta, tb) -> (occursCheck vcheck ta) || (occursCheck vcheck tb)
 
-let rec substType (subst:Map<_, _>) t1 = 
-  // TODO: Add case for 'TyFunction' (need to substitute in both nested types)
-  failwith "not implemented"
+let rec substType (subst:Map<string, Type>) ty = 
+  // DONE: Apply all the specified substitutions to the type 'ty'
+  // (that is, replace all occurrences of 'v' in 'ty' with 'subst.[v]')
+  match ty with
+  | TyBool -> TyBool
+  | TyNumber -> TyNumber
+  | TyList(t) -> TyList(substType subst t)
+  | TyVariable(vName) -> if subst.ContainsKey vName then subst.[vName] else TyVariable(vName)
+  // DONE: Add case for 'TyFunction' (need to substitute in both nested types)
+  | TyFunction(ta, tb) -> TyFunction((substType subst ta), (substType subst tb))
 
-let substConstrs subst cs = 
-  failwith "implemented in step 2"
+let substConstrs (subst:Map<string, Type>) (cs:list<Type * Type>) = 
+  // DONE: Apply substitution 'subst' to all types in constraints 'cs'
+  List.map (fun (ty1, ty2) -> ((substType subst ty1), (substType subst ty2))) cs
  
-let rec solve constraints =
-  // TODO: Add case matching TyFunction(ta1, tb1) and TyFunction(ta2, tb2)
+let rec solve cs =
+  match cs with 
+  | [] -> []
+  | (TyNumber, TyNumber)::cs -> solve cs
+  // DONE: Fill in the remaining cases! You can closely follow the
+  // example from task 1 - the logic here is exactly the same.
+  | (TyList t1, TyList t2)::cs -> 
+      solve ((t1, t2)::cs)
+  | (TyBool, TyBool)::cs -> solve cs
+  | (TyNumber, TyBool)::_
+  | (TyBool, TyNumber)::_
+  | (TyList _, TyNumber)::_
+  | (TyNumber, TyList _)::_
+  | (TyList _, TyBool)::_
+  | (TyBool, TyList _)::_ ->
+      failwith "Cannot be solved"
+  | (t, TyVariable v)::cs
+  | (TyVariable v, t)::cs ->
+      if occursCheck v t then failwith "Cannot be solved (occurs check)"
+      let constrs = substConstrs (Map.ofList [(v, t)]) cs
+      let subst = solve constrs
+      let t = substType (Map.ofList subst) t
+      (v, t)::subst
+  // DONE: Add case matching TyFunction(ta1, tb1) and TyFunction(ta2, tb2)
   // This generates two new constraints, equating the argument/return types.
-  failwith "not implemented"
+  | (TyFunction(ta1, tb1), TyFunction(ta2, tb2))::cs ->
+      solve ((ta1, ta2)::(tb1, tb2)::cs)
+  | (_, TyFunction(ta, tb))::cs
+  | (TyFunction(ta, tb), _)::cs -> failwith "Cannot be solved"
 
 
 // ----------------------------------------------------------------------------
@@ -55,30 +94,71 @@ let newTyVariable =
 
 let rec generate (ctx:TypingContext) e = 
   match e with 
-  | Constant _ -> failwith "implemented in step 3"
-  | Binary("+", e1, e2) -> failwith "implemented in step 3"
-  | Binary("=", e1, e2) -> failwith "implemented in step 3"
-  | Binary(op, _, _) -> failwith "implemented in step 3"
-  | Variable v -> failwith "implemented in step 3"
-  | If(econd, etrue, efalse) -> failwith "implemented in step 3"
+  | Constant _ -> 
+      // NOTE: If the expression is a constant number, we return
+      // its type (number) and generate no further constraints.
+      TyNumber, []
+  | Binary("+", e1, e2) ->
+      // NOTE: Recursively process sub-expressions, collect all the 
+      // constraints and ensure the types of 'e1' and 'e2' are 'TyNumber'
+      let t1, s1 = generate ctx e1
+      let t2, s2 = generate ctx e2
+      TyNumber, s1 @ s2 @ [ t1, TyNumber; t2, TyNumber ]
+  | Binary("=", e1, e2) ->
+      // DONE: Similar to the case for '+' but returns 'TyBool'
+      let t1, s1 = generate ctx e1
+      let t2, s2 = generate ctx e2
+      TyBool, s1 @ s2 @ [ t1, TyNumber; t2, TyNumber ]
+  | Binary("*", e1, e2) ->
+      let t1, s1 = generate ctx e1
+      let t2, s2 = generate ctx e2
+      TyNumber, s1 @ s2 @ [ t1, TyNumber; t2, TyNumber ]
+  | Binary(op, _, _) ->
+      failwithf "Binary operator '%s' not supported." op
+  | Variable v -> 
+      // DONE: Just get the type of the variable from 'ctx' here.
+      // (fails for Let x = x in ...)
+      if (not (ctx.ContainsKey v)) then failwith "Variable not defined in the given context" else ctx.[v], []
+  | If(econd, etrue, efalse) ->
+      // DONE: Call generate recursively on all three sub-expressions,
+      // collect all constraints and add a constraint that (i) the type
+      // of 'econd' is 'TyBool' and (ii) types of 'etrue' and 'efalse' match.
+      let tcond, scond = generate ctx econd
+      let ttrue, strue = generate ctx etrue
+      let tfalse, sfalse = generate ctx efalse
+
+      ttrue, scond @ strue @ sfalse @ [ tcond, TyBool; ttrue, tfalse ]
 
   | Let(v, e1, e2) ->
-      // TODO: Generate type & constraints for 'e1' first and then
+      // DONE: Generate type & constraints for 'e1' first and then
       // add the generated type to the typing context for 't2'.
-      failwith "not implemented"
+      let t1, s1 = generate ctx e1
+      let localCtx = ctx.Add (v, t1)
   
+      let t2, s2 = generate localCtx e2
+
+      t2, s1 @ s2
+
   | Lambda(v, e) ->
       let targ = newTyVariable()
-      // TODO: We do not know what the type of the variable 'v' is, so we 
+      // DONE: We do not know what the type of the variable 'v' is, so we 
       // generate a new type variable and add that to the 'ctx'. The
       // resulting type will be 'TyFunction' with 'targ' as argument type.
-      failwith "not implemented"
+      let newCtx = ctx.Add (v, targ)
+      let te, se = generate newCtx e
 
+      TyFunction(targ, te), se
+      
   | Application(e1, e2) -> 
-      // TODO: Tricky case! We cannot inspect the generated type of 'e1'
+      // DONE: Tricky case! We cannot inspect the generated type of 'e1'
       // to see what the argument/return type of the function is. Instead,
       // we have to generate a new type variable and add a constraint.
-      failwith "not implemented"
+      let rarg = newTyVariable()
+
+      let t2, s2 = generate ctx e2
+      let t1, s1 = generate ctx e1
+
+      rarg, s1 @ s2 @ [t1, TyFunction(t2, rarg)]
   
 
 // ----------------------------------------------------------------------------
@@ -90,6 +170,7 @@ let infer e =
   let typ, constraints = generate Map.empty e 
   let subst = solve constraints
   let typ = substType (Map.ofList subst) typ
+  //subst
   typ
 
 
